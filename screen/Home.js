@@ -17,7 +17,6 @@ import axios from "axios";
 
 export default function Home() {
   const [image, setImage] = React.useState(null);
-  const [image2, setImage2] = React.useState("");
   const [products, setProducts] = React.useState([]);
   const [name, setName] = React.useState("");
   const [link, setLink] = React.useState("");
@@ -41,7 +40,6 @@ export default function Home() {
 
     if (!result.canceled) {
       setImage(result.assets[0].uri);
-      setImage2(result);
     }
   };
 
