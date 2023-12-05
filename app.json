@@ -31,6 +31,12 @@
         "projectId": "aaf11f35-f5f3-42a7-9619-d1dee655d0a3"
       }
     },
-    "owner": "tunnaduong"
+    "owner": "tunnaduong",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/aaf11f35-f5f3-42a7-9619-d1dee655d0a3"
+    }
   }
 }
