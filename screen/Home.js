@@ -14,6 +14,12 @@ import {
 import React from "react";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
+import {
+  downloadFileFromUri,
+  openDownloadedFile,
+  checkFileIsAvailable,
+} from "expo-downloads-manager";
+import { AnimatedCircularProgress } from "react-native-circular-progress";
 
 export default function Home() {
   const [image, setImage] = React.useState(null);
@@ -22,10 +28,88 @@ export default function Home() {
   const [link, setLink] = React.useState("");
   const [imageLink, setImageLink] = React.useState("");
   const [refreshing, setRefreshing] = React.useState(false);
+  const [downloadStatus, setDownloadStatus] = React.useState("NOTSTARTED");
+  const [downloadProgress, setDownloadProgress] = React.useState(0);
+  const [downloadURL, setDownloadURL] = React.useState("");
+  const [fileName, setFileName] = React.useState("");
+  const [uri, setUri] = React.useState("");
+
+  const token = "G7eRpMaa";
 
   React.useEffect(() => {
     handleShowProduct();
   }, []);
+
+  async function checkAvail() {
+    const { isAvailable } = await checkFileIsAvailable(fileName);
+    if (isAvailable) {
+      setDownloadStatus("FINISHED");
+    }
+  }
+
+  React.useEffect(() => {
+    checkAvail();
+  }, [uri]);
+
+  const callback = (downloadProgress) => {
+    setDownloadProgress(
+      (downloadProgress.totalBytesWritten /
+        downloadProgress.totalBytesExpectedToWrite) *
+        100
+    );
+  };
+
+  const handleDownloadVideo = async () => {
+    try {
+      if (downloadURL == "") {
+        Alert.alert("Vui lòng nhập link video TikTok");
+        return;
+      }
+
+      if (fileName == "") {
+        Alert.alert("Vui lòng nhập tên file video");
+        return;
+      }
+
+      const regex = /<source src="(.*?)"/g;
+      const response = await axios.get(
+        "https://dlpanda.com?url=" + downloadURL + "&token=" + token
+      );
+      const uri = "http:" + regex.exec(response.data)[1];
+      setUri(uri);
+      const { status, error } = await downloadFileFromUri(
+        uri,
+        fileName,
+        callback
+      );
+      setDownloadStatus("DOWNLOADING");
+      switch (status) {
+        case "finished":
+          setDownloadStatus("FINISHED");
+          Alert.alert("Tải video thành công");
+          break;
+        case "error":
+          setDownloadStatus("ERROR");
+          Alert.alert("Tải video thất bại");
+          break;
+        default:
+          break;
+      }
+    } catch (e) {
+      console.log(e);
+    }
+    // console.log("Download status: " + status);
+  };
+
+  // Call this function when you want to generate a new file name
+  const generateFileName = () => {
+    const newFileName = "video" + getRandomInt(10000) + ".mp4";
+    setFileName(newFileName);
+  };
+
+  function getRandomInt(max) {
+    return Math.floor(Math.random() * max);
+  }
 
   const pickImage = async () => {
     // No permissions request is necessary for launching the image library
@@ -178,7 +262,75 @@ export default function Home() {
             text={imageLink}
           ></TextInput>
         </View>
-        <View style={{ marginTop: 25, marginBottom: 10 }}>
+        <View
+          style={{
+            width: 350,
+            height: 40,
+            marginTop: 10,
+            display: "flex",
+            flexDirection: "row",
+          }}
+        >
+          <TextInput
+            style={{
+              borderWidth: 1,
+              flex: 1,
+              paddingLeft: 10,
+              paddingRight: 10,
+              borderRadius: 10,
+              marginRight: 10,
+            }}
+            placeholder="Nhập link video TikTok cần tải"
+            onChangeText={(text) => setDownloadURL(text)}
+            text={downloadURL}
+          ></TextInput>
+          <AnimatedCircularProgress
+            size={40}
+            width={3}
+            fill={downloadProgress}
+            tintColor="blue"
+            backgroundColor="#f3f3f3"
+            rotation={0}
+          >
+            {(fill) => (
+              <TouchableOpacity
+                onPress={handleDownloadVideo}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 50,
+                  backgroundColor: "skyblue",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ color: "blue" }}>Tải</Text>
+              </TouchableOpacity>
+            )}
+          </AnimatedCircularProgress>
+        </View>
+        <View style={{ width: 300, height: 40, marginTop: 10 }}>
+          <TextInput
+            style={{
+              borderWidth: 1,
+              flex: 1,
+              paddingLeft: 10,
+              paddingRight: 10,
+              borderRadius: 10,
+            }}
+            placeholder="Nhập tên file video"
+            onChangeText={(text) => setFileName(text)}
+            text={fileName}
+            value={fileName}
+          ></TextInput>
+        </View>
+        <View style={{ marginTop: 10 }}>
+          <Button
+            onPress={generateFileName}
+            title="Tạo tên file video ngẫu nhiên"
+          />
+        </View>
+        <View style={{ marginTop: 20, marginBottom: 10 }}>
           <Button onPress={pickImage} title="Chọn ảnh sản phẩm từ điện thoại" />
         </View>
         {image && (
@@ -221,6 +373,14 @@ export default function Home() {
         )}
         <View style={{ marginTop: 10 }}>
           <Button onPress={handleUploadProduct} title="Up sản phẩm" />
+        </View>
+        <View style={{ marginTop: 20 }}>
+          <Button
+            onPress={async () => {
+              await openDownloadedFile(fileName);
+            }}
+            title="Mở video"
+          />
         </View>
         <Text
           style={{
