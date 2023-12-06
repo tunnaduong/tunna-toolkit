@@ -100,7 +100,7 @@ export default function Home() {
         const res = await axios.get(
           "https://muoireview.tunna.fun/api/add-product?name=" +
             name +
-            "&link=https://tndg.link/api/redirect?next=" +
+            "&link=" +
             link +
             "&image=" +
             imageLink
