@@ -26,13 +26,11 @@ export default function Home() {
   const [products, setProducts] = React.useState([]);
   const [name, setName] = React.useState("");
   const [link, setLink] = React.useState("");
-  const [imageLink, setImageLink] = React.useState("");
   const [refreshing, setRefreshing] = React.useState(false);
-  const [downloadStatus, setDownloadStatus] = React.useState("NOTSTARTED");
   const [downloadProgress, setDownloadProgress] = React.useState(0);
   const [downloadURL, setDownloadURL] = React.useState("");
   const [fileName, setFileName] = React.useState("");
-  const [uri, setUri] = React.useState("");
+  const [meta, setMeta] = React.useState("");
 
   const token = "G7eRpMaa";
 
@@ -40,16 +38,20 @@ export default function Home() {
     handleShowProduct();
   }, []);
 
-  async function checkAvail() {
-    const { isAvailable } = await checkFileIsAvailable(fileName);
-    if (isAvailable) {
-      setDownloadStatus("FINISHED");
+  const handleGetVideoMeta = async () => {
+    try {
+      if (downloadURL == "") {
+        Alert.alert("Vui lòng nhập link video TikTok");
+        return;
+      }
+      const response = await axios.get(
+        "https://www.tiktok.com/oembed?url=" + downloadURL
+      );
+      setMeta(response.data.title);
+    } catch (e) {
+      console.log(e);
     }
-  }
-
-  React.useEffect(() => {
-    checkAvail();
-  }, [uri]);
+  };
 
   const callback = (downloadProgress) => {
     setDownloadProgress(
@@ -76,20 +78,16 @@ export default function Home() {
         "https://dlpanda.com?url=" + downloadURL + "&token=" + token
       );
       const uri = "http:" + regex.exec(response.data)[1];
-      setUri(uri);
       const { status, error } = await downloadFileFromUri(
         uri,
         fileName,
         callback
       );
-      setDownloadStatus("DOWNLOADING");
       switch (status) {
         case "finished":
-          setDownloadStatus("FINISHED");
           Alert.alert("Tải video thành công");
           break;
         case "error":
-          setDownloadStatus("ERROR");
           Alert.alert("Tải video thất bại");
           break;
         default:
@@ -142,58 +140,59 @@ export default function Home() {
 
   const handleUploadProduct = async () => {
     try {
-      if (image != null) {
-        const fileExtension = image.split(".")[1];
-        console.log("fileExtension is " + fileExtension);
+      if (name == "") {
+        Alert.alert("Vui lòng nhập tên sản phẩm");
+        return;
+      }
+      if (link == "") {
+        Alert.alert("Vui lòng nhập link Shopee");
+        return;
+      }
+      if (image == null) {
+        Alert.alert("Vui lòng chọn ảnh sản phẩm");
+        return;
+      }
+      const fileExtension = image.split(".")[1];
+      console.log("fileExtension is " + fileExtension);
 
-        const data = new FormData();
+      const data = new FormData();
 
-        const fileName = Date.now() + "." + fileExtension;
+      const fileName = Date.now() + "." + fileExtension;
 
-        data.append("file_attachment", {
-          uri: image,
-          name: fileName,
-          type: `image/${fileExtension}`,
+      data.append("file_attachment", {
+        uri: image,
+        name: fileName,
+        type: `image/${fileExtension}`,
+      });
+
+      axios({
+        method: "post",
+        url: "https://muoireview.tunna.fun/api/upload-image",
+        data: data,
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+        .then(function (response) {
+          //handle success
+          console.log(response.data);
+        })
+        .catch(function (response) {
+          //handle error
+          console.log(response);
         });
 
-        axios({
-          method: "post",
-          url: "https://muoireview.tunna.fun/api/upload-image",
-          data: data,
-          headers: { "Content-Type": "multipart/form-data" },
-        })
-          .then(function (response) {
-            //handle success
-            console.log(response.data);
-          })
-          .catch(function (response) {
-            //handle error
-            console.log(response);
-          });
-
-        const res = await axios.get(
-          "https://muoireview.tunna.fun/api/add-product?name=" +
-            name +
-            "&link=" +
-            link +
-            "&image=https://muoireview.tunna.fun/assets/images/" +
-            fileName
-        );
-        console.log(res.data);
-      } else {
-        const res = await axios.get(
-          "https://muoireview.tunna.fun/api/add-product?name=" +
-            name +
-            "&link=" +
-            link +
-            "&image=" +
-            imageLink
-        );
-        console.log(res.data);
-      }
+      const res = await axios.get(
+        "https://muoireview.tunna.fun/api/add-product?name=" +
+          name +
+          "&link=" +
+          link +
+          "&image=https://muoireview.tunna.fun/assets/images/" +
+          fileName
+      );
+      console.log(res.data);
     } catch (e) {
       console.log(e);
     }
+    setProducts([]);
     handleShowProduct();
   };
 
@@ -208,15 +207,25 @@ export default function Home() {
     }
   };
 
+  const handleRefresh = () => {
+    setProducts([]);
+    handleShowProduct();
+    setName("");
+    setLink("");
+    setDownloadProgress(0);
+    setDownloadURL("");
+    setFileName("");
+    setMeta("");
+    setImage(null);
+    setRefreshing(false);
+  };
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView
         style={{ padding: 15, flex: 1 }}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleShowProduct}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
         <Text style={{ fontWeight: 800, fontSize: 30 }}>Tunna Toolkit</Text>
@@ -231,7 +240,7 @@ export default function Home() {
             }}
             placeholder="Nhập tên sản phẩm"
             onChangeText={(text) => setName(text)}
-            text={name}
+            value={name}
           ></TextInput>
         </View>
         <View style={{ width: 300, height: 40, marginTop: 10 }}>
@@ -245,21 +254,7 @@ export default function Home() {
             }}
             placeholder="Nhập link Shopee"
             onChangeText={(text) => setLink(text)}
-            text={link}
-          ></TextInput>
-        </View>
-        <View style={{ width: 300, height: 40, marginTop: 10 }}>
-          <TextInput
-            style={{
-              borderWidth: 1,
-              flex: 1,
-              paddingLeft: 10,
-              paddingRight: 10,
-              borderRadius: 10,
-            }}
-            placeholder="Nhập link ảnh sản phẩm (nếu có)"
-            onChangeText={(text) => setImageLink(text)}
-            text={imageLink}
+            value={link}
           ></TextInput>
         </View>
         <View
@@ -282,7 +277,7 @@ export default function Home() {
             }}
             placeholder="Nhập link video TikTok cần tải"
             onChangeText={(text) => setDownloadURL(text)}
-            text={downloadURL}
+            value={downloadURL}
           ></TextInput>
           <AnimatedCircularProgress
             size={40}
@@ -320,7 +315,6 @@ export default function Home() {
             }}
             placeholder="Nhập tên file video"
             onChangeText={(text) => setFileName(text)}
-            text={fileName}
             value={fileName}
           ></TextInput>
         </View>
@@ -377,11 +371,30 @@ export default function Home() {
         <View style={{ marginTop: 20 }}>
           <Button
             onPress={async () => {
+              if (fileName == "") {
+                Alert.alert("Vui lòng nhập tên file video");
+                return;
+              }
+              const { isAvailable } = await checkFileIsAvailable(fileName);
+              if (!isAvailable) {
+                Alert.alert("File video không tồn tại");
+                return;
+              }
               await openDownloadedFile(fileName);
             }}
             title="Mở video"
           />
         </View>
+        <View style={{ marginTop: 20 }}>
+          <Button onPress={handleGetVideoMeta} title="Lấy thông tin video" />
+        </View>
+        {meta != "" && (
+          <View style={{ marginTop: 10 }}>
+            <Text selectable={true} style={{ fontWeight: 600, fontSize: 15 }}>
+              {meta}
+            </Text>
+          </View>
+        )}
         <Text
           style={{
             fontWeight: 600,
